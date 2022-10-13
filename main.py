@@ -5,7 +5,7 @@ import pandas as pd
 ALL_BUYERS = []
 ALL_LENDERS = []
 NUM_BUYERS = 0
-MAX_BUYERS = 10
+MAX_BUYERS = 5
 NUM_LENDERS = 0
 MAX_LENDERS = 1
 
