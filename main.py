@@ -16,42 +16,43 @@ from colorama import Fore, Style
 ALL_BUYERS = []
 ALL_LENDERS = []
 NUM_BUYERS = 0      # Simulation parameters and counters
-MAX_BUYERS = 100
+MAX_BUYERS = 10
 NUM_LENDERS = 0
 MAX_LENDERS = 3
 ALL_BANDS = [0, 1, 2, 3, 4]
+SIMULATION_TIME = 120
 
 
 # Buyer object and attributes
 class Buyer:
-    def __init__(self, num, income, credit_band):
+    def __init__(self, num, income, credit_band, month):
         self.num = num
         self.income = income
         self.credit = credit_band                           # Currently randomised
-        self.asset = rn.choice([10000, 20000, 30000])       # Currently randomised
+        self.asset = rn.choice([4000, 8000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000])
         self.allowance = (self.income*0.3) / 12             # Allowance based off 50/30/20 rule of income spending
-        self.eligible = True
         self.duration = rn.choice([12, 24, 36, 48])
+        self.eligible = True
+        self.status = "Applying"
         self.preferred = True
         self.offer = []
         self.defaulting = rn.random()/(10*12)               # Currently randomised
+        self.start_month = month
         self.payment_timeline = np.zeros(48)
 
-    def pay_loan(self, lender):
+    def pay_loan(self, counter, lender):
         monthly = self.offer[1]
-        total = monthly * self.duration
-        counter = 0
-        while round(total, 2) > 0:
-            if math.floor(rn.uniform(0, 1/(1-self.defaulting))):
+        total = monthly * self.duration - ((counter - self.start_month) * monthly)
+        if round(total, 2) <= 0:
+            self.status = "Finished"
+        else:
+            if math.floor(rn.uniform(0, 1 / (1 - self.defaulting))):
                 print(f"Buyer {self.num} (Lender {lender.num}) defaulted loan on month {counter}. "
                       f"Total remaining: £{round(total, 2)} ")
                 lender.loss += total
-                self.payment_timeline[counter] = monthly
-                break
-            total -= monthly
-            lender.profit += monthly
-            self.payment_timeline[counter] = monthly
-            counter += 1
+                self.status = 'Defaulted'
+            else:
+                lender.profit += monthly
 
 
 # Lender object and attributes
@@ -68,6 +69,7 @@ class Lender:
         if buyer.credit < self.credit_limit:
             print(f"Buyer {buyer.num} (Lender {self.num}): Rejected")
             buyer.eligible = False
+            buyer.status = "Approved"
 
     # Function for lender to generate offer to the buyer (currently maximises monthly payments/minimises duration)
     def monthly_offer(self, buyer):
@@ -123,19 +125,22 @@ def rate_generate(income, asset, credit):
     return rate
 
 
-# Generates all buyers and lenders based on simulation parameters
-def simulation_setup(num_buyers, num_lenders):
-    global ALL_BUYERS, ALL_LENDERS, NUM_BUYERS, NUM_LENDERS
+def buyer_setup(t, num_buyers):
+    global ALL_BUYERS, NUM_BUYERS
     for i in range(num_buyers):
         buyer_income = income_generate()*1000
         buyer_band = rn.choice(ALL_BANDS)                 # This will be swapped for credit score process
-        ALL_BUYERS.append(Buyer(i, buyer_income, buyer_band))
+        buyer_num = i + (t*num_buyers)
+        ALL_BUYERS.append(Buyer(buyer_num, buyer_income, buyer_band, t))
         NUM_BUYERS += 1
+
+
+def lender_setup(num_lenders):
+    global ALL_LENDERS, NUM_LENDERS
     for j in range(num_lenders):
         lender_check = rn.choice(ALL_BANDS)
         ALL_LENDERS.append(Lender(j, lender_check))
         NUM_LENDERS += 1
-    print(f"Simulation Setup Successfully")
 
 
 def ret_2nd_ele(tuple_1):
@@ -154,6 +159,7 @@ def generate_offers(all_buyers, all_lenders):
                       f"interest rate of {offer_rate:.1f}% for {offer_duration} months."
                       f" Total Monthly payments: £{offer_monthly:.2f}")
                 current_buyer.offer.append((current_lender.num, offer_monthly))
+                current_buyer.status = "Paying"
             current_buyer.eligible = True
         if current_buyer.offer:
             accepted_offer = min(current_buyer.offer, key=ret_2nd_ele)
@@ -162,17 +168,17 @@ def generate_offers(all_buyers, all_lenders):
             current_buyer.offer = accepted_offer
 
 
-def loan_payments(all_buyers, all_lenders):
+def loan_payments(month, all_buyers, all_lenders):
     for payee in all_buyers:
         if payee.offer:
             lender = all_lenders[payee.offer[0]]
-            payee.pay_loan(lender)
+            payee.pay_loan(month, lender)
     for lender in all_lenders:
         print(f"Lender {lender.num}: Profit/Loss" +
               Fore.GREEN + f" +£{round(lender.profit, 2)}" + Style.RESET_ALL + f" / " +
               Fore.RED + f"-£{round(lender.loss, 2)}" + Style.RESET_ALL)
 
-
+'''
 def plot_timeline(all_buyers, all_lenders):
     fig, axs = plt.subplots(len(all_lenders))
     for i in range(len(all_lenders)):
@@ -185,13 +191,23 @@ def plot_timeline(all_buyers, all_lenders):
         plt.ylabel("Monthly Revenue (£)")
         plt.xlabel("Months")
     plt.show()
+'''
+
+
+def simulation(sim_time, num_buyers, num_lenders):
+    global ALL_BUYERS, ALL_LENDERS
+    lender_setup(num_lenders)
+    for t in range(sim_time):
+        print(Fore.BLUE + f"Month {t}" + Style.RESET_ALL)
+        if t <= 11:
+            buyer_setup(t, num_buyers)
+            current_buyers = ALL_BUYERS[num_buyers*t:num_buyers+(num_buyers*t)]
+            generate_offers(current_buyers, ALL_LENDERS)
+        loan_payments(t, ALL_BUYERS, ALL_LENDERS)
 
 
 if __name__ == '__main__':
     start = time.perf_counter()
-    simulation_setup(MAX_BUYERS, MAX_LENDERS)
-    generate_offers(ALL_BUYERS, ALL_LENDERS)
-    loan_payments(ALL_BUYERS, ALL_LENDERS)
-    plot_timeline(ALL_BUYERS, ALL_LENDERS)
+    simulation(SIMULATION_TIME, MAX_BUYERS, MAX_LENDERS)
     end = time.perf_counter()
     print(f"Simulation finished in {round(end - start, 2)}s")
