@@ -18,7 +18,7 @@ ALL_LENDERS = []
 NUM_BUYERS = 0      # Simulation parameters and counters
 MAX_BUYERS = 10
 NUM_LENDERS = 0
-MAX_LENDERS = 3
+MAX_LENDERS = 5
 ALL_BANDS = [0, 1, 2, 3, 4]
 SIMULATION_TIME = 120
 
@@ -38,7 +38,6 @@ class Buyer:
         self.offer = []
         self.defaulting = rn.random()/(10*12)               # Currently randomised
         self.start_month = month
-        self.payment_timeline = np.zeros(48)
 
     def pay_loan(self, counter, lender):
         monthly = self.offer[1]
@@ -47,7 +46,7 @@ class Buyer:
             self.status = "Finished"
         else:
             if math.floor(rn.uniform(0, 1 / (1 - self.defaulting))):
-                print(f"Buyer {self.num} (Lender {lender.num}) defaulted loan on month {counter}. "
+                print(f"Buyer {self.num} (Lender {lender.num}) defaulted. "
                       f"Total remaining: £{round(total, 2)} ")
                 lender.loss += total
                 self.status = 'Defaulted'
@@ -69,9 +68,11 @@ class Lender:
         if buyer.credit < self.credit_limit:
             print(f"Buyer {buyer.num} (Lender {self.num}): Rejected")
             buyer.eligible = False
-            buyer.status = "Approved"
+            buyer.status = "Rejected"
+        else:
+            buyer.status = 'Approved'
 
-    # Function for lender to generate offer to the buyer (currently maximises monthly payments/minimises duration)
+    # Function for lender to generate offer to the buyer
     def monthly_offer(self, buyer):
         principle = buyer.asset
         allowance = buyer.allowance
@@ -178,31 +179,18 @@ def loan_payments(month, all_buyers, all_lenders):
               Fore.GREEN + f" +£{round(lender.profit, 2)}" + Style.RESET_ALL + f" / " +
               Fore.RED + f"-£{round(lender.loss, 2)}" + Style.RESET_ALL)
 
-'''
-def plot_timeline(all_buyers, all_lenders):
-    fig, axs = plt.subplots(len(all_lenders))
-    for i in range(len(all_lenders)):
-        x = np.arange(0, 48)
-        y = np.zeros(48)
-        for buyer in all_buyers:
-            if buyer.offer and buyer.offer[0] == i:
-                y += buyer.payment_timeline
-        axs[i].plot(x, y)
-        plt.ylabel("Monthly Revenue (£)")
-        plt.xlabel("Months")
-    plt.show()
-'''
-
 
 def simulation(sim_time, num_buyers, num_lenders):
     global ALL_BUYERS, ALL_LENDERS
     lender_setup(num_lenders)
+    index = 0
     for t in range(sim_time):
         print(Fore.BLUE + f"Month {t}" + Style.RESET_ALL)
-        if t <= 11:
+        if t % 12 == 0:
             buyer_setup(t, num_buyers)
-            current_buyers = ALL_BUYERS[num_buyers*t:num_buyers+(num_buyers*t)]
+            current_buyers = ALL_BUYERS[num_buyers*index:num_buyers+(num_buyers*index)]
             generate_offers(current_buyers, ALL_LENDERS)
+            index += 1
         loan_payments(t, ALL_BUYERS, ALL_LENDERS)
 
 
