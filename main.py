@@ -194,6 +194,7 @@ def simulation(sim_time, num_buyers, num_lenders):
         loan_payments(t, ALL_BUYERS, ALL_LENDERS)
 
 
+
 if __name__ == '__main__':
     start = time.perf_counter()
     simulation(SIMULATION_TIME, MAX_BUYERS, MAX_LENDERS)
